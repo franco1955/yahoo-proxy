@@ -259,6 +259,26 @@ canvas{display:block;width:100%;}
         SL négatif si LONG · SL positif si SHORT · TP toujours positif dans XTB
       </div>
     </div>
+
+    <!-- Prix absolus corrigés XTB -->
+    <div style="background:var(--bg2);border:1px solid rgba(63,185,80,.3);border-radius:8px;padding:12px;margin-top:8px;">
+      <div style="font-size:11px;color:var(--green);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">📌 Prix absolus à saisir dans XTB</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
+        <div style="background:var(--bg3);border-radius:8px;padding:10px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">ENTRÉE</div>
+          <div id="x-abs-entry" style="font-size:15px;font-weight:700;color:var(--yellow);">--</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:10px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">STOP LOSS</div>
+          <div id="x-abs-sl" style="font-size:15px;font-weight:700;color:var(--red);">--</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:10px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">TAKE PROFIT</div>
+          <div id="x-abs-tp" style="font-size:15px;font-weight:700;color:var(--green);">--</div>
+        </div>
+      </div>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
       <div style="text-align:center;background:var(--bg2);border-radius:8px;padding:8px;">
         <div style="font-size:10px;color:var(--muted);">SL distance</div>
@@ -474,6 +494,12 @@ function calcXTB(){
   document.getElementById('x-xtb-entry').textContent='Prix: '+entry;
   document.getElementById('x-xtb-sl').textContent='S/L: '+xtbSL;
   document.getElementById('x-xtb-tp').textContent='T/P: '+xtbTP;
+
+  // Prix absolus corrigés
+  var dp=entry>100?2:5;
+  document.getElementById('x-abs-entry').textContent=entry.toFixed(dp);
+  document.getElementById('x-abs-sl').textContent=sl.toFixed(dp);
+  document.getElementById('x-abs-tp').textContent=tp.toFixed(dp);
 }
 
 function fillXTBFromDashboard(){
