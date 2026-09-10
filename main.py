@@ -207,6 +207,23 @@ canvas{display:block;width:100%;}
       <button class="btn" style="width:100%;background:var(--purple);" onclick="fillXTBFromDashboard()">⬆ Importer du graphique</button>
     </div>
   </div>
+
+  <!-- Prix XTB réel -->
+  <div style="background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.3);border-radius:8px;padding:10px;margin-bottom:10px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:flex-end;">
+      <div>
+        <label style="color:var(--blue);">💹 Prix réel XTB (optionnel)</label>
+        <input type="number" id="x-xtb-real" step="any" placeholder="Ex: 4398.5 (prix XTB actuel)" oninput="calcXTB()" style="border-color:rgba(88,166,255,.4);">
+      </div>
+      <div style="font-size:11px;color:var(--muted);padding-bottom:4px;">
+        Saisis le prix actuel affiché sur XTB pour corriger l'écart avec Yahoo Finance. Entry/SL/TP seront recalculés proportionnellement.
+      </div>
+    </div>
+    <div id="x-ecart-info" style="font-size:11px;color:var(--muted);margin-top:6px;display:none;">
+      Écart Yahoo↔XTB : <span id="x-ecart-val" style="font-weight:700;"></span>
+    </div>
+  </div>
+
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
     <div><label>Entrée (prix)</label><input type="number" id="x-entry" step="any" oninput="calcXTB()"></div>
     <div><label>Stop Loss (prix)</label><input type="number" id="x-sl" step="any" oninput="calcXTB()"></div>
@@ -417,6 +434,23 @@ function calcXTB(){
   // Pip size per instrument
   var pipSizes={'FOREX':0.0001,'JPY':0.01,'GOLD':0.1,'SILVER':0.01,'OIL':0.01,'INDEX':1,'BTC':1,'ETH':0.1};
   var pip=pipSizes[inst]||0.0001;
+
+  // Correction écart Yahoo ↔ XTB
+  var xtbReal=parseFloat(document.getElementById('x-xtb-real').value);
+  if(xtbReal&&entry){
+    var ecart=xtbReal-entry;
+    var ecartEl=document.getElementById('x-ecart-info');
+    var ecartSign=ecart>=0?'+':'';
+    document.getElementById('x-ecart-val').textContent=ecartSign+ecart.toFixed(2)+' (Yahoo: '+entry+' → XTB: '+xtbReal+')';
+    document.getElementById('x-ecart-val').style.color=Math.abs(ecart)>2?'var(--yellow)':'var(--green)';
+    ecartEl.style.display='block';
+    // Recalcul proportionnel : décale entry, SL, TP du même écart
+    entry=xtbReal;
+    sl=parseFloat(document.getElementById('x-sl').value)+ecart;
+    tp=parseFloat(document.getElementById('x-tp').value)+ecart;
+  } else {
+    document.getElementById('x-ecart-info').style.display='none';
+  }
 
   var dir=sl<entry?'LONG':'SHORT';
 
