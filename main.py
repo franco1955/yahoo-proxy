@@ -418,25 +418,28 @@ function calcXTB(){
   var pipSizes={'FOREX':0.0001,'JPY':0.01,'GOLD':0.1,'SILVER':0.01,'OIL':0.01,'INDEX':1,'BTC':1,'ETH':0.1};
   var pip=pipSizes[inst]||0.0001;
 
-  var slPips=Math.round((entry-sl)/pip);   // négatif si long
-  var tpPips=Math.round((tp-entry)/pip);   // positif si long
-
   var dir=sl<entry?'LONG':'SHORT';
-  if(dir==='SHORT'){slPips=Math.round((sl-entry)/pip);tpPips=Math.round((entry-tp)/pip);}
 
-  var rr=tpPips/slPips;
+  // Distance en pips (toujours positive)
+  var slPips=Math.round(Math.abs(entry-sl)/pip);
+  var tpPips=Math.round(Math.abs(tp-entry)/pip);
+  var rr=tpPips/(slPips||1);
+
+  // XTB Click & Trade : SL = négatif si LONG, positif si SHORT / TP = toujours positif
+  var xtbSL=(dir==='LONG'?'-':'+')+slPips;
+  var xtbTP='+'+tpPips;
 
   document.getElementById('x-dir').textContent=dir;
   document.getElementById('x-dir').style.color=dir==='LONG'?'var(--green)':'var(--red)';
-  document.getElementById('x-sl-pips').textContent=(dir==='LONG'?'-':'-')+slPips+' pips';
-  document.getElementById('x-tp-pips').textContent='+'+tpPips+' pips';
+  document.getElementById('x-sl-pips').textContent=slPips+' pips';
+  document.getElementById('x-tp-pips').textContent=tpPips+' pips';
   document.getElementById('x-rr').textContent='1 : '+rr.toFixed(2);
   document.getElementById('x-rr').style.color=rr>=2?'var(--green)':rr>=1?'var(--yellow)':'var(--red)';
 
   // Saisie XTB (Click & Trade)
   document.getElementById('x-xtb-entry').textContent='Prix: '+entry;
-  document.getElementById('x-xtb-sl').textContent='S/L: '+(dir==='LONG'?'-':'+')+slPips;
-  document.getElementById('x-xtb-tp').textContent='T/P: '+(dir==='LONG'?'+':'-')+tpPips;
+  document.getElementById('x-xtb-sl').textContent='S/L: '+xtbSL;
+  document.getElementById('x-xtb-tp').textContent='T/P: '+xtbTP;
 }
 
 function fillXTBFromDashboard(){
