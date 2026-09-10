@@ -186,6 +186,75 @@ canvas{display:block;width:100%;}
   <button class="btn" style="width:100%;padding:14px" onclick="generateAnalysis()">🧠 Générer l'Analyse Technique</button>
 </div>
 <div id="analysis-box"></div>
+
+<!-- XTB SECTION -->
+<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin:0 14px 10px;">
+  <div style="font-size:13px;font-weight:700;margin-bottom:10px;">🏦 Saisie XTB (Click &amp; Trade)</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+    <div><label>Instrument</label>
+      <select id="x-inst" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:14px;padding:10px 12px;border-radius:8px;width:100%;outline:none;">
+        <option value="FOREX">Forex (EUR/USD, GBP...)</option>
+        <option value="JPY">Forex JPY (USD/JPY...)</option>
+        <option value="GOLD">Gold (XAU/USD)</option>
+        <option value="SILVER">Silver (XAG/USD)</option>
+        <option value="OIL">Pétrole (OIL)</option>
+        <option value="INDEX">Indices (US500, NAS...)</option>
+        <option value="BTC">Bitcoin</option>
+        <option value="ETH">Ethereum</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:flex-end;">
+      <button class="btn" style="width:100%;background:var(--purple);" onclick="fillXTBFromDashboard()">⬆ Importer du graphique</button>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+    <div><label>Entrée (prix)</label><input type="number" id="x-entry" step="any" oninput="calcXTB()"></div>
+    <div><label>Stop Loss (prix)</label><input type="number" id="x-sl" step="any" oninput="calcXTB()"></div>
+    <div><label>Take Profit (prix)</label><input type="number" id="x-tp" step="any" oninput="calcXTB()"></div>
+  </div>
+
+  <!-- Résultats -->
+  <div style="background:var(--bg3);border-radius:10px;padding:12px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--muted);">Direction :</span>
+      <span id="x-dir" style="font-size:15px;font-weight:700;">--</span>
+      <span style="font-size:12px;color:var(--muted);margin-left:10px;">R:R :</span>
+      <span id="x-rr" style="font-size:15px;font-weight:700;">--</span>
+    </div>
+    <!-- Saisie XTB -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">📋 À saisir dans XTB (Click &amp; Trade)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
+        <div style="background:var(--bg3);border-radius:8px;padding:10px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">PRIX D'ENTRÉE</div>
+          <div id="x-xtb-entry" style="font-size:14px;font-weight:700;color:var(--yellow);">--</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:10px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">S/L (pips)</div>
+          <div id="x-xtb-sl" style="font-size:14px;font-weight:700;color:var(--red);">--</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:10px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">T/P (pips)</div>
+          <div id="x-xtb-tp" style="font-size:14px;font-weight:700;color:var(--green);">--</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center;">
+        SL négatif si LONG · SL positif si SHORT · TP toujours positif dans XTB
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <div style="text-align:center;background:var(--bg2);border-radius:8px;padding:8px;">
+        <div style="font-size:10px;color:var(--muted);">SL distance</div>
+        <div id="x-sl-pips" style="font-size:14px;font-weight:700;color:var(--red);">--</div>
+      </div>
+      <div style="text-align:center;background:var(--bg2);border-radius:8px;padding:8px;">
+        <div style="font-size:10px;color:var(--muted);">TP distance</div>
+        <div id="x-tp-pips" style="font-size:14px;font-weight:700;color:var(--green);">--</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="status" class="loading">Initialisation…</div>
 <script>
 var S={sym:'GC=F',name:'GOLD',interval:'1h',range:'1mo',tf:'H1',candles:[],indicators:{},price:null,chg:null,chgPct:null};
@@ -336,6 +405,61 @@ function generateAnalysis(){
 }
 function setStatus(txt,cls){var el=document.getElementById('status');el.textContent=txt;el.className=cls;}
 window.addEventListener('resize',function(){if(S.candles.length)drawChart();});
+
+// ── XTB CALCULATOR ─────────────────────────────────────────────────────────
+function calcXTB(){
+  var entry=parseFloat(document.getElementById('x-entry').value);
+  var sl=parseFloat(document.getElementById('x-sl').value);
+  var tp=parseFloat(document.getElementById('x-tp').value);
+  var inst=document.getElementById('x-inst').value;
+  if(!entry||!sl||!tp){return;}
+
+  // Pip size per instrument
+  var pipSizes={'FOREX':0.0001,'JPY':0.01,'GOLD':0.1,'SILVER':0.01,'OIL':0.01,'INDEX':1,'BTC':1,'ETH':0.1};
+  var pip=pipSizes[inst]||0.0001;
+
+  var slPips=Math.round((entry-sl)/pip);   // négatif si long
+  var tpPips=Math.round((tp-entry)/pip);   // positif si long
+
+  var dir=sl<entry?'LONG':'SHORT';
+  if(dir==='SHORT'){slPips=Math.round((sl-entry)/pip);tpPips=Math.round((entry-tp)/pip);}
+
+  var rr=tpPips/slPips;
+
+  document.getElementById('x-dir').textContent=dir;
+  document.getElementById('x-dir').style.color=dir==='LONG'?'var(--green)':'var(--red)';
+  document.getElementById('x-sl-pips').textContent=(dir==='LONG'?'-':'-')+slPips+' pips';
+  document.getElementById('x-tp-pips').textContent='+'+tpPips+' pips';
+  document.getElementById('x-rr').textContent='1 : '+rr.toFixed(2);
+  document.getElementById('x-rr').style.color=rr>=2?'var(--green)':rr>=1?'var(--yellow)':'var(--red)';
+
+  // Saisie XTB (Click & Trade)
+  document.getElementById('x-xtb-entry').textContent='Prix: '+entry;
+  document.getElementById('x-xtb-sl').textContent='S/L: '+(dir==='LONG'?'-':'+')+slPips;
+  document.getElementById('x-xtb-tp').textContent='T/P: '+(dir==='LONG'?'+':'-')+tpPips;
+}
+
+function fillXTBFromDashboard(){
+  var entry=document.getElementById('r-entry').value;
+  var sl=document.getElementById('r-sl').value;
+  var tp=document.getElementById('r-tp').value;
+  if(entry)document.getElementById('x-entry').value=entry;
+  if(sl)document.getElementById('x-sl').value=sl;
+  if(tp)document.getElementById('x-tp').value=tp;
+  // auto-detect instrument
+  var inst='FOREX';
+  var sym=S.sym;
+  if(sym.indexOf('GC')>=0||sym.indexOf('GOLD')>=0||sym==='GC=F')inst='GOLD';
+  else if(sym.indexOf('SI')>=0||sym.indexOf('SILVER')>=0)inst='SILVER';
+  else if(sym.indexOf('CL')>=0||sym.indexOf('OIL')>=0)inst='OIL';
+  else if(sym.indexOf('BTC')>=0)inst='BTC';
+  else if(sym.indexOf('ETH')>=0)inst='ETH';
+  else if(sym.indexOf('JPY')>=0)inst='JPY';
+  else if(sym==='ES=F'||sym==='NQ=F'||sym.indexOf('GDAXI')>=0)inst='INDEX';
+  document.getElementById('x-inst').value=inst;
+  calcXTB();
+}
+
 loadData();
 </script>
 </body>
