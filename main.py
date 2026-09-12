@@ -80,6 +80,16 @@ canvas{display:block;width:100%;}
 #loader-text{font-size:13px;color:var(--muted);}
 #loader-bar{width:60%;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;}
 #loader-fill{height:100%;background:var(--blue);border-radius:2px;transition:width .3s;}
+#fs-btn{position:absolute;top:8px;right:8px;background:rgba(22,27,34,.85);border:1px solid var(--border);color:var(--muted);font-size:14px;padding:5px 9px;border-radius:7px;cursor:pointer;z-index:10;backdrop-filter:blur(4px);}
+#fs-btn:hover{color:var(--text);border-color:var(--blue);}
+/* Fullscreen overlay */
+#chart-overlay{display:none;position:fixed;inset:0;z-index:1000;background:var(--bg);flex-direction:column;}
+#chart-overlay.open{display:flex;}
+#chart-overlay-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);}
+#chart-overlay-title{font-size:15px;font-weight:700;color:var(--text);}
+#fs-close{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:18px;width:36px;height:36px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+#chart-overlay-body{flex:1;position:relative;overflow:hidden;}
+#chart-canvas-fs{display:block;width:100%;height:100%;}
 .ind-panels{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 14px 10px;}
 @media(min-width:600px){.ind-panels{grid-template-columns:repeat(4,1fr);}}
 .ind-panel{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;}
@@ -155,9 +165,21 @@ canvas{display:block;width:100%;}
 </div>
 <div id="chart-wrap">
   <canvas id="chart-canvas" height="260"></canvas>
+  <button id="fs-btn" onclick="openFullscreen()" title="Plein écran">⤢</button>
   <div id="chart-loader">
     <div id="loader-text">Connexion…</div>
     <div id="loader-bar"><div id="loader-fill" style="width:0%"></div></div>
+  </div>
+</div>
+
+<!-- Fullscreen overlay -->
+<div id="chart-overlay">
+  <div id="chart-overlay-header">
+    <div id="chart-overlay-title">GOLD · H1</div>
+    <button id="fs-close" onclick="closeFullscreen()">✕</button>
+  </div>
+  <div id="chart-overlay-body">
+    <canvas id="chart-canvas-fs"></canvas>
   </div>
 </div>
 <div class="ind-panels">
@@ -441,7 +463,73 @@ function generateAnalysis(){
   box.style.display='block';box.scrollIntoView({behavior:'smooth'});
 }
 function setStatus(txt,cls){var el=document.getElementById('status');el.textContent=txt;el.className=cls;}
-window.addEventListener('resize',function(){if(S.candles.length)drawChart();});
+
+// ── FULLSCREEN ─────────────────────────────────────────────────────────────
+function openFullscreen(){
+  var ov=document.getElementById('chart-overlay');
+  ov.classList.add('open');
+  document.getElementById('chart-overlay-title').textContent=S.name+' · '+S.tf;
+  // Empêche le scroll body
+  document.body.style.overflow='hidden';
+  drawChartOn(document.getElementById('chart-canvas-fs'), true);
+}
+function closeFullscreen(){
+  document.getElementById('chart-overlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+// Ferme avec Escape sur PC
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeFullscreen();});
+
+// drawChart générique qui accepte un canvas cible
+function drawChartOn(canvas, fullscreen){
+  var dpr=window.devicePixelRatio||1;
+  var W=fullscreen?window.innerWidth:(canvas.offsetWidth||600);
+  var H=fullscreen?(window.innerHeight-56):260; // 56 = hauteur header overlay
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  var ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  var ind=S.indicators,n=S.candles.length;
+  var visN=fullscreen?Math.min(n,150):Math.min(n,80);
+  var vis=S.candles.slice(n-visN);
+  var pad={l:6,r:62,t:14,b:28},cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
+  var emafV=ind.emafArr.slice(n-visN),emasV=ind.emasArr.slice(n-visN),bbV=ind.bbUpArr.slice(n-visN);
+  var allVals=vis.map(function(c){return c.h;}).concat(vis.map(function(c){return c.l;})).concat(emafV.filter(Boolean)).concat(emasV.filter(Boolean)).concat(bbV.filter(Boolean).reduce(function(a,b){return a.concat([b.up,b.lo]);},[]));
+  var minV=Math.min.apply(null,allVals)*0.9996,maxV=Math.max.apply(null,allVals)*1.0004,rng=maxV-minV||1;
+  var yp=function(v){return pad.t+cH*(1-(v-minV)/rng);};
+  var bW=Math.max(1,cW/visN-1),xp=function(i){return pad.l+(i+0.5)*(cW/visN);};
+  ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#21262d'; ctx.lineWidth=1;
+  for(var g=0;g<=6;g++){var gy=pad.t+cH*g/6;ctx.beginPath();ctx.moveTo(pad.l,gy);ctx.lineTo(W-pad.r,gy);ctx.stroke();ctx.fillStyle='#8b949e';ctx.font='9px -apple-system';ctx.textAlign='right';ctx.fillText(fmt(maxV-rng*g/6,maxV>100?2:4),W-2,gy+3);}
+  var started=false;
+  ctx.beginPath();bbV.forEach(function(b,i){if(!b)return;var x=xp(i);if(!started){ctx.moveTo(x,yp(b.up));started=true;}else ctx.lineTo(x,yp(b.up));});
+  ctx.strokeStyle='rgba(188,140,255,.35)';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();started=false;bbV.forEach(function(b,i){if(!b)return;var x=xp(i);if(!started){ctx.moveTo(x,yp(b.lo));started=true;}else ctx.lineTo(x,yp(b.lo));});ctx.stroke();
+  [[emafV,'#58a6ff'],[emasV,'#f85149']].forEach(function(pair){
+    var arr=pair[0],col=pair[1];ctx.beginPath();started=false;
+    arr.forEach(function(v,i){if(!v)return;var x=xp(i),y=yp(v);if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);});
+    ctx.strokeStyle=col;ctx.lineWidth=fullscreen?2:1.5;ctx.stroke();
+  });
+  vis.forEach(function(c,i){
+    var x=xp(i),bull=c.c>=c.o;ctx.strokeStyle=bull?'#3fb950':'#f85149';ctx.fillStyle=bull?'#3fb950':'#f85149';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,yp(c.h));ctx.lineTo(x,yp(c.l));ctx.stroke();
+    var y1=yp(Math.max(c.o,c.c)),bh=Math.max(1,yp(Math.min(c.o,c.c))-y1);ctx.fillRect(x-bW/2,y1,bW,bh);
+  });
+  var entry=parseFloat(document.getElementById('r-entry').value),sl=parseFloat(document.getElementById('r-sl').value),tp=parseFloat(document.getElementById('r-tp').value);
+  function drawLine(v,col,lbl){if(!v||isNaN(v)||v<minV||v>maxV)return;var y=yp(v);ctx.setLineDash([4,3]);ctx.strokeStyle=col;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=col;ctx.font='10px -apple-system';ctx.textAlign='left';ctx.fillText(lbl,pad.l+2,y-2);}
+  if(entry){drawLine(entry,'#d29922','Entry');drawLine(sl,'#f85149','SL');drawLine(tp,'#3fb950','TP');}
+  ctx.fillStyle='#8b949e';ctx.font='9px -apple-system';ctx.textAlign='center';
+  var step=Math.max(1,Math.floor(visN/8));
+  for(var k=0;k<visN;k+=step){var d=new Date(vis[k].t);var lbl=(S.interval.indexOf('m')>=0||S.interval==='1h'||S.interval==='4h')?d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});ctx.fillText(lbl,xp(k),H-6);}
+}
+
+function drawChart(){ drawChartOn(document.getElementById('chart-canvas'), false); }
+
+window.addEventListener('resize',function(){
+  if(S.candles.length){
+    drawChart();
+    if(document.getElementById('chart-overlay').classList.contains('open'))
+      drawChartOn(document.getElementById('chart-canvas-fs'),true);
+  }
+});
 
 // ── XTB CALCULATOR ─────────────────────────────────────────────────────────
 function calcXTB(){
